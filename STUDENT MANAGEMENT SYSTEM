@@ -1,0 +1,241 @@
+#include <iostream>
+#include <fstream>
+#include <iomanip>
+#include <string>
+#include <limits>
+#include <cstdio>
+using namespace std;
+
+struct Student {
+    int id;
+    string name;
+    int age;
+    string course;
+    string phone;
+};
+
+const string FILE_NAME = "students.txt";
+
+void addStudent() {
+    Student s;
+    ofstream file(FILE_NAME, ios::app);
+
+    if (!file) {
+        cout << "\nError opening file!\n";
+        return;
+    }
+
+    cout << "\nEnter Student ID: ";
+    cin >> s.id;
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
+    cout << "Enter Name: ";
+    getline(cin, s.name);
+
+    cout << "Enter Age: ";
+    cin >> s.age;
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
+    cout << "Enter Course: ";
+    getline(cin, s.course);
+
+    cout << "Enter Phone: ";
+    getline(cin, s.phone);
+
+    file << s.id << "|" << s.name << "|" << s.age << "|"
+         << s.course << "|" << s.phone << "\n";
+
+    file.close();
+    cout << "\nStudent added successfully!\n";
+}
+
+bool readStudent(ifstream &file, Student &s) {
+    string line;
+    if (!getline(file, line)) return false;
+
+    size_t p1 = line.find('|');
+    size_t p2 = line.find('|', p1 + 1);
+    size_t p3 = line.find('|', p2 + 1);
+    size_t p4 = line.find('|', p3 + 1);
+
+    if (p1 == string::npos || p2 == string::npos ||
+        p3 == string::npos || p4 == string::npos)
+        return false;
+
+    try {
+        s.id = stoi(line.substr(0, p1));
+        s.name = line.substr(p1 + 1, p2 - p1 - 1);
+        s.age = stoi(line.substr(p2 + 1, p3 - p2 - 1));
+        s.course = line.substr(p3 + 1, p4 - p3 - 1);
+        s.phone = line.substr(p4 + 1);
+    } catch (...) {
+        return false;
+    }
+
+    return true;
+}
+
+void displayStudents() {
+    ifstream file(FILE_NAME);
+    Student s;
+    bool found = false;
+
+    if (!file) {
+        cout << "\nNo student records found.\n";
+        return;
+    }
+
+    cout << "\n==================== STUDENT RECORDS ====================\n";
+    cout << left << setw(8) << "ID"
+         << setw(22) << "Name"
+         << setw(8) << "Age"
+         << setw(20) << "Course"
+         << setw(15) << "Phone" << "\n";
+    cout << string(73, '-') << "\n";
+
+    while (readStudent(file, s)) {
+        found = true;
+        cout << left << setw(8) << s.id
+             << setw(22) << s.name.substr(0, 20)
+             << setw(8) << s.age
+             << setw(20) << s.course.substr(0, 18)
+             << setw(15) << s.phone.substr(0, 13) << "\n";
+    }
+
+    if (!found) cout << "No records available.\n";
+    file.close();
+}
+
+void searchStudent() {
+    int id;
+    cout << "\nEnter Student ID to search: ";
+    cin >> id;
+
+    ifstream file(FILE_NAME);
+    Student s;
+    bool found = false;
+
+    while (file && readStudent(file, s)) {
+        if (s.id == id) {
+            found = true;
+            cout << "\nStudent Found!\n";
+            cout << "ID     : " << s.id << "\n";
+            cout << "Name   : " << s.name << "\n";
+            cout << "Age    : " << s.age << "\n";
+            cout << "Course : " << s.course << "\n";
+            cout << "Phone  : " << s.phone << "\n";
+            break;
+        }
+    }
+
+    file.close();
+
+    if (!found)
+        cout << "\nStudent not found.\n";
+}
+
+void updateStudent() {
+    int id;
+    cout << "\nEnter Student ID to update: ";
+    cin >> id;
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
+    ifstream inFile(FILE_NAME);
+    ofstream temp("temp.txt");
+    Student s;
+    bool found = false;
+
+    while (inFile && readStudent(inFile, s)) {
+        if (s.id == id) {
+            found = true;
+
+            cout << "\nEnter New Name: ";
+            getline(cin, s.name);
+
+            cout << "Enter New Age: ";
+            cin >> s.age;
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
+            cout << "Enter New Course: ";
+            getline(cin, s.course);
+
+            cout << "Enter New Phone: ";
+            getline(cin, s.phone);
+        }
+
+        temp << s.id << "|" << s.name << "|" << s.age << "|"
+             << s.course << "|" << s.phone << "\n";
+    }
+
+    inFile.close();
+    temp.close();
+
+    remove(FILE_NAME.c_str());
+    rename("temp.txt", FILE_NAME.c_str());
+
+    if (found)
+        cout << "\nStudent updated successfully!\n";
+    else
+        cout << "\nStudent not found.\n";
+}
+
+void deleteStudent() {
+    int id;
+    cout << "\nEnter Student ID to delete: ";
+    cin >> id;
+
+    ifstream inFile(FILE_NAME);
+    ofstream temp("temp.txt");
+    Student s;
+    bool found = false;
+
+    while (inFile && readStudent(inFile, s)) {
+        if (s.id == id) {
+            found = true;
+            continue;
+        }
+
+        temp << s.id << "|" << s.name << "|" << s.age << "|"
+             << s.course << "|" << s.phone << "\n";
+    }
+
+    inFile.close();
+    temp.close();
+
+    remove(FILE_NAME.c_str());
+    rename("temp.txt", FILE_NAME.c_str());
+
+    if (found)
+        cout << "\nStudent deleted successfully!\n";
+    else
+        cout << "\nStudent not found.\n";
+}
+
+int main() {
+    int choice;
+
+    do {
+        cout << "\n\n========== STUDENT MANAGEMENT SYSTEM ==========\n";
+        cout << "1. Add Student\n";
+        cout << "2. Display All Students\n";
+        cout << "3. Search Student\n";
+        cout << "4. Update Student\n";
+        cout << "5. Delete Student\n";
+        cout << "6. Exit\n";
+        cout << "===============================================\n";
+        cout << "Enter your choice: ";
+        cin >> choice;
+
+        switch (choice) {
+            case 1: addStudent(); break;
+            case 2: displayStudents(); break;
+            case 3: searchStudent(); break;
+            case 4: updateStudent(); break;
+            case 5: deleteStudent(); break;
+            case 6: cout << "\nThank you for using the system!\n"; break;
+            default: cout << "\nInvalid choice! Please try again.\n";
+        }
+    } while (choice != 6);
+
+    return 0;
+}
