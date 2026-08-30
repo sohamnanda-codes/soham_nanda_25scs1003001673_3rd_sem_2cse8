@@ -1,0 +1,382 @@
+#include <iostream>
+#include <fstream>
+#include <iomanip>
+#include <string>
+#include <limits>
+using namespace std;
+
+class Book {
+private:
+    int bookId;
+    string title;
+    string author;
+    bool issued;
+
+public:
+    Book() : bookId(0), title(""), author(""), issued(false) {}
+
+    Book(int id, string t, string a, bool status = false)
+        : bookId(id), title(t), author(a), issued(status) {}
+
+    int getId() const { return bookId; }
+    string getTitle() const { return title; }
+    string getAuthor() const { return author; }
+    bool isIssued() const { return issued; }
+
+    void setIssued(bool status) { issued = status; }
+
+    void save(ofstream &file) const {
+        file << bookId << "|" << title << "|" << author << "|" << issued << "\n";
+    }
+};
+
+class Member {
+private:
+    int memberId;
+    string name;
+
+public:
+    Member() : memberId(0), name("") {}
+
+    Member(int id, string n) : memberId(id), name(n) {}
+
+    int getId() const { return memberId; }
+    string getName() const { return name; }
+
+    void save(ofstream &file) const {
+        file << memberId << "|" << name << "\n";
+    }
+};
+
+class Library {
+private:
+    const string bookFile = "books.txt";
+    const string memberFile = "members.txt";
+
+    bool findBook(int id, Book &book) {
+        ifstream file(bookFile);
+        string line;
+
+        while (getline(file, line)) {
+            size_t p1 = line.find('|');
+            size_t p2 = line.find('|', p1 + 1);
+            size_t p3 = line.find('|', p2 + 1);
+
+            if (p1 == string::npos || p2 == string::npos || p3 == string::npos)
+                continue;
+
+            try {
+                int bookId = stoi(line.substr(0, p1));
+                string title = line.substr(p1 + 1, p2 - p1 - 1);
+                string author = line.substr(p2 + 1, p3 - p2 - 1);
+                bool issued = stoi(line.substr(p3 + 1));
+
+                if (bookId == id) {
+                    book = Book(bookId, title, author, issued);
+                    return true;
+                }
+            } catch (...) {
+                continue;
+            }
+        }
+        return false;
+    }
+
+    bool memberExists(int id) {
+        ifstream file(memberFile);
+        string line;
+
+        while (getline(file, line)) {
+            size_t p = line.find('|');
+            if (p == string::npos) continue;
+
+            try {
+                if (stoi(line.substr(0, p)) == id)
+                    return true;
+            } catch (...) {}
+        }
+        return false;
+    }
+
+    void rewriteBookFile(const Book &updatedBook) {
+        ifstream input(bookFile);
+        ofstream temp("temp_books.txt");
+        string line;
+
+        while (getline(input, line)) {
+            size_t p = line.find('|');
+
+            if (p == string::npos) continue;
+
+            int id = stoi(line.substr(0, p));
+
+            if (id == updatedBook.getId())
+                updatedBook.save(temp);
+            else
+                temp << line << "\n";
+        }
+
+        input.close();
+        temp.close();
+
+        remove(bookFile.c_str());
+        rename("temp_books.txt", bookFile.c_str());
+    }
+
+public:
+    void addBook() {
+        int id;
+        string title, author;
+
+        cout << "\nEnter Book ID: ";
+        cin >> id;
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
+        Book existing;
+        if (findBook(id, existing)) {
+            cout << "\nBook ID already exists!\n";
+            return;
+        }
+
+        cout << "Enter Book Title: ";
+        getline(cin, title);
+
+        cout << "Enter Author Name: ";
+        getline(cin, author);
+
+        ofstream file(bookFile, ios::app);
+        Book book(id, title, author);
+        book.save(file);
+        file.close();
+
+        cout << "\nBook added successfully!\n";
+    }
+
+    void addMember() {
+        int id;
+        string name;
+
+        cout << "\nEnter Member ID: ";
+        cin >> id;
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
+        if (memberExists(id)) {
+            cout << "\nMember ID already exists!\n";
+            return;
+        }
+
+        cout << "Enter Member Name: ";
+        getline(cin, name);
+
+        ofstream file(memberFile, ios::app);
+        Member member(id, name);
+        member.save(file);
+        file.close();
+
+        cout << "\nMember added successfully!\n";
+    }
+
+    void displayBooks() {
+        ifstream file(bookFile);
+        string line;
+        bool found = false;
+
+        cout << "\n==================== BOOK LIST ====================\n";
+        cout << left << setw(10) << "ID"
+             << setw(28) << "Title"
+             << setw(25) << "Author"
+             << "Status\n";
+        cout << string(75, '-') << "\n";
+
+        while (getline(file, line)) {
+            size_t p1 = line.find('|');
+            size_t p2 = line.find('|', p1 + 1);
+            size_t p3 = line.find('|', p2 + 1);
+
+            if (p1 == string::npos || p2 == string::npos || p3 == string::npos)
+                continue;
+
+            try {
+                int id = stoi(line.substr(0, p1));
+                string title = line.substr(p1 + 1, p2 - p1 - 1);
+                string author = line.substr(p2 + 1, p3 - p2 - 1);
+                bool issued = stoi(line.substr(p3 + 1));
+
+                cout << left << setw(10) << id
+                     << setw(28) << title.substr(0, 26)
+                     << setw(25) << author.substr(0, 23)
+                     << (issued ? "Issued" : "Available") << "\n";
+
+                found = true;
+            } catch (...) {}
+        }
+
+        if (!found)
+            cout << "No books available.\n";
+
+        file.close();
+    }
+
+    void displayMembers() {
+        ifstream file(memberFile);
+        string line;
+        bool found = false;
+
+        cout << "\n==================== MEMBER LIST ====================\n";
+        cout << left << setw(15) << "Member ID" << "Name\n";
+        cout << string(45, '-') << "\n";
+
+        while (getline(file, line)) {
+            size_t p = line.find('|');
+            if (p == string::npos) continue;
+
+            try {
+                int id = stoi(line.substr(0, p));
+                string name = line.substr(p + 1);
+
+                cout << left << setw(15) << id << name << "\n";
+                found = true;
+            } catch (...) {}
+        }
+
+        if (!found)
+            cout << "No members available.\n";
+
+        file.close();
+    }
+
+    void searchBook() {
+        string keyword;
+        cout << "\nEnter book title or author to search: ";
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+        getline(cin, keyword);
+
+        ifstream file(bookFile);
+        string line;
+        bool found = false;
+
+        cout << "\nSearch Results:\n";
+
+        while (getline(file, line)) {
+            size_t p1 = line.find('|');
+            size_t p2 = line.find('|', p1 + 1);
+            size_t p3 = line.find('|', p2 + 1);
+
+            if (p1 == string::npos || p2 == string::npos || p3 == string::npos)
+                continue;
+
+            int id = stoi(line.substr(0, p1));
+            string title = line.substr(p1 + 1, p2 - p1 - 1);
+            string author = line.substr(p2 + 1, p3 - p2 - 1);
+            bool issued = stoi(line.substr(p3 + 1));
+
+            if (title.find(keyword) != string::npos ||
+                author.find(keyword) != string::npos) {
+                cout << "\nBook ID : " << id;
+                cout << "\nTitle   : " << title;
+                cout << "\nAuthor  : " << author;
+                cout << "\nStatus  : " << (issued ? "Issued" : "Available") << "\n";
+                found = true;
+            }
+        }
+
+        if (!found)
+            cout << "\nNo matching book found.\n";
+
+        file.close();
+    }
+
+    void issueBook() {
+        int bookId, memberId;
+
+        cout << "\nEnter Book ID: ";
+        cin >> bookId;
+
+        Book book;
+        if (!findBook(bookId, book)) {
+            cout << "\nBook not found!\n";
+            return;
+        }
+
+        if (book.isIssued()) {
+            cout << "\nBook is already issued!\n";
+            return;
+        }
+
+        cout << "Enter Member ID: ";
+        cin >> memberId;
+
+        if (!memberExists(memberId)) {
+            cout << "\nMember not found! Please add the member first.\n";
+            return;
+        }
+
+        book.setIssued(true);
+        rewriteBookFile(book);
+
+        cout << "\nBook issued successfully!\n";
+    }
+
+    void returnBook() {
+        int bookId;
+
+        cout << "\nEnter Book ID: ";
+        cin >> bookId;
+
+        Book book;
+        if (!findBook(bookId, book)) {
+            cout << "\nBook not found!\n";
+            return;
+        }
+
+        if (!book.isIssued()) {
+            cout << "\nThis book is already available in the library.\n";
+            return;
+        }
+
+        book.setIssued(false);
+        rewriteBookFile(book);
+
+        cout << "\nBook returned successfully!\n";
+    }
+
+    void run() {
+        int choice;
+
+        do {
+            cout << "\n\n========== LIBRARY MANAGEMENT SYSTEM ==========\n";
+            cout << "1. Add Book\n";
+            cout << "2. Add Member\n";
+            cout << "3. Display Books\n";
+            cout << "4. Display Members\n";
+            cout << "5. Search Book by Title/Author\n";
+            cout << "6. Issue Book\n";
+            cout << "7. Return Book\n";
+            cout << "8. Exit\n";
+            cout << "===============================================\n";
+            cout << "Enter your choice: ";
+            cin >> choice;
+
+            switch (choice) {
+                case 1: addBook(); break;
+                case 2: addMember(); break;
+                case 3: displayBooks(); break;
+                case 4: displayMembers(); break;
+                case 5: searchBook(); break;
+                case 6: issueBook(); break;
+                case 7: returnBook(); break;
+                case 8:
+                    cout << "\nThank you for using the Library Management System!\n";
+                    break;
+                default:
+                    cout << "\nInvalid choice! Please try again.\n";
+            }
+        } while (choice != 8);
+    }
+};
+
+int main() {
+    Library library;
+    library.run();
+    return 0;
+}
